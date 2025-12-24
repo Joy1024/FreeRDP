@@ -26,6 +26,6 @@ set(${MODULE_PREFIX}_LIBS winpr freerdp ${OSS_LIBRARIES})
 include_directories(..)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(SYSTEM ${OSS_INCLUDE_DIRS})
-cleaning_configure_file(${CMAKE_SOURCE_DIR}/cmake/oss-includes.h.in ${CMAKE_CURRENT_BINARY_DIR}/oss-includes.h @ONLY)
+cleaning_configure_file(${FreeRDP_SOURCE_DIR}/cmake/oss-includes.h.in ${CMAKE_CURRENT_BINARY_DIR}/oss-includes.h @ONLY)
 
 add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")

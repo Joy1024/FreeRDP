@@ -45,11 +45,11 @@ endmacro()
 
 set(SRCS sdl_resource_manager.cpp sdl_resource_manager.hpp)
 
-set(RES_SVG_FILES ${CMAKE_SOURCE_DIR}/resources/FreeRDP_Icon.svg ${CMAKE_SOURCE_DIR}/resources/icon_info.svg
-                  ${CMAKE_SOURCE_DIR}/resources/icon_warning.svg ${CMAKE_SOURCE_DIR}/resources/icon_error.svg
+set(RES_SVG_FILES ${FreeRDP_SOURCE_DIR}/resources/FreeRDP_Icon.svg ${FreeRDP_SOURCE_DIR}/resources/icon_info.svg
+                  ${FreeRDP_SOURCE_DIR}/resources/icon_warning.svg ${FreeRDP_SOURCE_DIR}/resources/icon_error.svg
 )
 
-set(RES_FONT_FILES ${CMAKE_SOURCE_DIR}/resources/font/OpenSans-VariableFont_wdth,wght.ttf)
+set(RES_FONT_FILES ${FreeRDP_SOURCE_DIR}/resources/font/OpenSans-VariableFont_wdth,wght.ttf)
 
 option(SDL_USE_COMPILED_RESOURCES "Compile in images/fonts" ON)
 
