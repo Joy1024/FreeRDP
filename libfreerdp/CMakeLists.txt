@@ -1,19 +1,19 @@
-# FreeRDP: A Remote Desktop Protocol Implementation
-# libfreerdp cmake build script
+# FreeRDP: A Remote Desktop Protocol Implementation libfreerdp cmake build
+# script
 #
 # Copyright 2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
 
 set(MODULE_NAME "freerdp")
 set(MODULE_PREFIX "FREERDP")
@@ -28,20 +28,28 @@ if(WITH_RESOURCE_VERSIONING)
   string(APPEND FREERDP_RESOURCE_ROOT "${FREERDP_VERSION_MAJOR}")
 endif()
 
-set(FREERDP_PC_REQUIRES_PRIVATE "" CACHE INTERNAL "dependencies")
+set(FREERDP_PC_REQUIRES_PRIVATE
+    ""
+    CACHE INTERNAL "dependencies")
 macro(freerdp_pc_add_requires_private)
   foreach(_lib ${ARGN})
     list(APPEND FREERDP_PC_REQUIRES_PRIVATE " ${_lib}")
   endforeach()
-  set(FREERDP_PC_REQUIRES_PRIVATE ${FREERDP_PC_REQUIRES_PRIVATE} CACHE INTERNAL "dependencies")
+  set(FREERDP_PC_REQUIRES_PRIVATE
+      ${FREERDP_PC_REQUIRES_PRIVATE}
+      CACHE INTERNAL "dependencies")
 endmacro()
 
-set(FREERDP_PC_LIBRARY_PRIVATE "" CACHE INTERNAL "dependencies")
+set(FREERDP_PC_LIBRARY_PRIVATE
+    ""
+    CACHE INTERNAL "dependencies")
 macro(freerdp_pc_add_library_private)
   foreach(_lib ${ARGN})
     list(APPEND FREERDP_PC_LIBRARY_PRIVATE ${_lib})
   endforeach()
-  set(FREERDP_PC_LIBRARY_PRIVATE ${FREERDP_PC_LIBRARY_PRIVATE} CACHE INTERNAL "dependencies")
+  set(FREERDP_PC_LIBRARY_PRIVATE
+      ${FREERDP_PC_LIBRARY_PRIVATE}
+      CACHE INTERNAL "dependencies")
 endmacro()
 
 # CMake modules includes
@@ -65,7 +73,9 @@ macro(freerdp_module_add)
     endif()
   endforeach()
   if(_relPath)
-    set(LIBFREERDP_SRCS ${LIBFREERDP_SRCS} PARENT_SCOPE)
+    set(LIBFREERDP_SRCS
+        ${LIBFREERDP_SRCS}
+        PARENT_SCOPE)
   endif()
 endmacro()
 
@@ -83,7 +93,9 @@ macro(freerdp_include_directory_add)
     endif()
   endforeach()
   if(_relPath)
-    set(LIBFREERDP_INCLUDES ${LIBFREERDP_INCLUDES} PARENT_SCOPE)
+    set(LIBFREERDP_INCLUDES
+        ${LIBFREERDP_INCLUDES}
+        PARENT_SCOPE)
   endif()
 endmacro()
 
@@ -91,35 +103,45 @@ macro(freerdp_library_add_public)
   foreach(_lib ${ARGN})
     list(APPEND LIBFREERDP_PUB_LIBS "${_lib}")
   endforeach()
-  set(LIBFREERDP_PUB_LIBS ${LIBFREERDP_PUB_LIBS} PARENT_SCOPE)
+  set(LIBFREERDP_PUB_LIBS
+      ${LIBFREERDP_PUB_LIBS}
+      PARENT_SCOPE)
 endmacro()
 
 macro(freerdp_object_library_add)
   foreach(_lib ${ARGN})
     list(APPEND LIBFREERDP_OBJECT_LIBS "$<TARGET_OBJECTS:${_lib}>")
   endforeach()
-  set(LIBFREERDP_OBJECT_LIBS ${LIBFREERDP_OBJECT_LIBS} PARENT_SCOPE)
+  set(LIBFREERDP_OBJECT_LIBS
+      ${LIBFREERDP_OBJECT_LIBS}
+      PARENT_SCOPE)
 endmacro()
 
 macro(freerdp_library_add)
   foreach(_lib ${ARGN})
     list(APPEND LIBFREERDP_LIBS "${_lib}")
   endforeach()
-  set(LIBFREERDP_LIBS ${LIBFREERDP_LIBS} PARENT_SCOPE)
+  set(LIBFREERDP_LIBS
+      ${LIBFREERDP_LIBS}
+      PARENT_SCOPE)
 endmacro()
 
 macro(freerdp_definition_add)
   foreach(_define ${ARGN})
     list(APPEND LIBFREERDP_DEFINITIONS "${_define}")
   endforeach()
-  set(LIBFREERDP_DEFINITIONS ${LIBFREERDP_DEFINITIONS} PARENT_SCOPE)
+  set(LIBFREERDP_DEFINITIONS
+      ${LIBFREERDP_DEFINITIONS}
+      PARENT_SCOPE)
 endmacro()
 
 macro(freerdp_compile_options_add)
   foreach(_lib ${ARGN})
     list(APPEND LIBFREERDP_COMPILE_OPTIONS "${_lib}")
   endforeach()
-  set(LIBFREERDP_COMPILE_OPTIONS ${LIBFREERDP_COMPILE_OPTIONS} PARENT_SCOPE)
+  set(LIBFREERDP_COMPILE_OPTIONS
+      ${LIBFREERDP_COMPILE_OPTIONS}
+      PARENT_SCOPE)
 endmacro()
 
 option(WITH_FDK_AAC "Enable FDK_AAC support" OFF)
@@ -190,17 +212,27 @@ if(WITH_CAIRO)
   freerdp_library_add(${CAIRO_LIBRARY})
 endif()
 if(NOT WITH_SWSCALE AND NOT WITH_CAIRO)
-  message(WARNING "-DWITH_SWSCALE=OFF and -DWITH_CAIRO=OFF, compiling without image scaling support!")
+  message(
+    WARNING
+      "-DWITH_SWSCALE=OFF and -DWITH_CAIRO=OFF, compiling without image scaling support!"
+  )
 endif()
 
-set(${MODULE_PREFIX}_SUBMODULES emu utils common gdi cache crypto locale core)
+set(${MODULE_PREFIX}_SUBMODULES
+    emu utils common gdi
+    cache crypto locale core)
 
 foreach(${MODULE_PREFIX}_SUBMODULE ${${MODULE_PREFIX}_SUBMODULES})
   add_subdirectory(${${MODULE_PREFIX}_SUBMODULE})
 endforeach()
 
-if(NOT WITH_DSP_FFMPEG AND NOT WITH_FAAC AND NOT WITH_FDK_AAC)
-  message(WARNING "Compiling without WITH_DSP_FFMPEG, WITH_FAAC and WITH_FDK_AAC. AAC encoder support disabled")
+if(NOT WITH_DSP_FFMPEG
+   AND NOT WITH_FAAC
+   AND NOT WITH_FDK_AAC)
+  message(
+    WARNING
+      "Compiling without WITH_DSP_FFMPEG, WITH_FAAC and WITH_FDK_AAC. AAC encoder support disabled"
+  )
 endif()
 
 add_subdirectory(codec)
@@ -208,7 +240,9 @@ add_subdirectory(primitives)
 
 if(WITH_AAD)
   if(NOT WITH_WINPR_JSON)
-    message(FATAL_ERROR "Trying to build -DWITH_AAD=ON but WITH_WINPR_JSON is not defined")
+    message(
+      FATAL_ERROR
+        "Trying to build -DWITH_AAD=ON but WITH_WINPR_JSON is not defined")
   endif()
 endif()
 
@@ -223,13 +257,15 @@ if(LIBFREERDP_OBJECT_LIBS)
   list(APPEND LIBFREERDP_SRCS ${LIBFREERDP_OBJECT_LIBS})
 endif()
 
-addtargetwithresourcefile(${MODULE_NAME} FALSE "${FREERDP_VERSION}" LIBFREERDP_SRCS)
+addtargetwithresourcefile(${MODULE_NAME} STATIC "${FREERDP_VERSION}"
+                          LIBFREERDP_SRCS)
 
 if(WITH_RESOURCE_VERSIONING)
   target_compile_definitions(${MODULE_NAME} PRIVATE WITH_RESOURCE_VERSIONING)
 endif()
 if(FREERDP_USE_VENDOR_PRODUCT_CONFIG_DIR)
-  target_compile_definitions(${MODULE_NAME} PRIVATE FREERDP_USE_VENDOR_PRODUCT_CONFIG_DIR)
+  target_compile_definitions(${MODULE_NAME}
+                             PRIVATE FREERDP_USE_VENDOR_PRODUCT_CONFIG_DIR)
 endif()
 
 add_compile_definitions(${LIBFREERDP_DEFINITIONS})
@@ -243,7 +279,8 @@ if(WITH_FULL_CONFIG_PATH)
   add_compile_definitions(WITH_FULL_CONFIG_PATH)
 endif()
 
-target_include_directories(${MODULE_NAME} INTERFACE $<INSTALL_INTERFACE:include>)
+target_include_directories(${MODULE_NAME}
+                           INTERFACE $<INSTALL_INTERFACE:include>)
 target_link_libraries(${MODULE_NAME} PRIVATE ${LIBFREERDP_LIBS})
 target_link_libraries(${MODULE_NAME} PUBLIC ${LIBFREERDP_PUB_LIBS})
 installwithrpath(
@@ -261,8 +298,7 @@ installwithrpath(
   ${CMAKE_INSTALL_LIBDIR}
   RUNTIME
   DESTINATION
-  ${CMAKE_INSTALL_BINDIR}
-)
+  ${CMAKE_INSTALL_BINDIR})
 
 set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "FreeRDP/libfreerdp")
 
@@ -286,22 +322,24 @@ if(BUILD_SHARED_LIBS)
 endif()
 
 cleaning_configure_file(
-  ${CMAKE_CURRENT_SOURCE_DIR}/freerdp.pc.in ${CMAKE_CURRENT_BINARY_DIR}/freerdp${FREERDP_VERSION_MAJOR}.pc @ONLY
-)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freerdp${FREERDP_VERSION_MAJOR}.pc DESTINATION ${PKG_CONFIG_PC_INSTALL_DIR})
+  ${CMAKE_CURRENT_SOURCE_DIR}/freerdp.pc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/freerdp${FREERDP_VERSION_MAJOR}.pc @ONLY)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freerdp${FREERDP_VERSION_MAJOR}.pc
+        DESTINATION ${PKG_CONFIG_PC_INSTALL_DIR})
 
-## cmake project
+# cmake project
 export(PACKAGE freerdp)
 
 configure_package_config_file(
   FreeRDPConfig.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfig.cmake
-  INSTALL_DESTINATION ${FREERDP_CMAKE_INSTALL_DIR} PATH_VARS FREERDP_INCLUDE_DIR FREERDP_PLUGIN_PATH
-)
+  INSTALL_DESTINATION ${FREERDP_CMAKE_INSTALL_DIR}
+  PATH_VARS FREERDP_INCLUDE_DIR FREERDP_PLUGIN_PATH)
 
 write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfigVersion.cmake VERSION ${FREERDP_VERSION} COMPATIBILITY SameMajorVersion
-)
+  ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfigVersion.cmake
+  VERSION ${FREERDP_VERSION}
+  COMPATIBILITY SameMajorVersion)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfig.cmake ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfigVersion.cmake
-        DESTINATION ${FREERDP_CMAKE_INSTALL_DIR}
-)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/FreeRDPConfigVersion.cmake
+        DESTINATION ${FREERDP_CMAKE_INSTALL_DIR})
