@@ -843,6 +843,10 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 FakeMouseMotionInterval); /* 5198 */
 	UINT64 padding5312[5312 - 5199];                             /* 5199 */
 
+	// 水印设置
+	SETTINGS_DEPRECATED(ALIGN64 char *WM_ComputerName);
+	SETTINGS_DEPRECATED(ALIGN64 char *WM_CustomerText);
+
 	/**
 	 * WARNING: End of ABI stable zone!
 	 *

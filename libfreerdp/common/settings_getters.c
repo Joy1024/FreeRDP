@@ -3039,7 +3039,10 @@ const char* freerdp_settings_get_string(WINPR_ATTR_UNUSED const rdpSettings* set
 
 		case FreeRDP_WmClass:
 			return settings->WmClass;
-
+		case FreeRDP_WM_CustomerText:
+			return settings->WM_CustomerText;
+		case FreeRDP_WM_ComputerName:
+			return settings->WM_ComputerName;
 		default:
 			WLog_ERR(TAG, "Invalid key index %" PRIuz " [%s|%s]", id,
 			         freerdp_settings_get_name_for_key(id),
@@ -4055,6 +4058,12 @@ BOOL freerdp_settings_set_string_copy_(WINPR_ATTR_UNUSED rdpSettings* settings,
 
 		case FreeRDP_WmClass:
 			return update_string_copy_(&settings->WmClass, cnv.cc, len, cleanup);
+
+		case FreeRDP_WM_CustomerText:
+			return update_string_copy_(&settings->WM_CustomerText, cnv.cc, len, cleanup);
+
+		case FreeRDP_WM_ComputerName:
+			return update_string_copy_(&settings->WM_ComputerName, cnv.cc, len, cleanup);
 
 		default:
 			WLog_ERR(TAG, "Invalid key index %" PRIuz " [%s|%s]", id,
