@@ -380,10 +380,10 @@ typedef UINT (*pcRegisterDevice)(DEVMAN* devman, DEVICE* device);
 typedef struct
 {
 	DEVMAN* devman;
-
 	pcRegisterDevice RegisterDevice;
 	RDPDR_DEVICE* device;
 	rdpContext* rdpcontext;
+	UINT32 accessCtrl;
 } DEVICE_SERVICE_ENTRY_POINTS;
 typedef DEVICE_SERVICE_ENTRY_POINTS* PDEVICE_SERVICE_ENTRY_POINTS;
 

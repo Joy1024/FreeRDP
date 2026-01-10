@@ -62,6 +62,8 @@ typedef struct
 	DEVMAN* devman;
 
 	rdpContext* rdpcontext;
+
+	DRIVE_FILE_CTRL ctrl;
 } DRIVE_DEVICE;
 
 static NTSTATUS drive_map_windows_err(DWORD fs_errno)
@@ -287,6 +289,16 @@ static UINT drive_process_irp_read(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 12))
 		return ERROR_INVALID_DATA;
 
+	DRIVE_FILE_CTRL ctrl = drive->ctrl;
+	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		return ERROR_ACCESS_DENIED;
+	}
+	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_READONLY))
+	{
+		return ERROR_ACCESS_DENIED;
+	}
+
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
 	file = drive_get_file_by_id(drive, irp->FileId);
@@ -346,12 +358,22 @@ static UINT drive_process_irp_write(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 32))
 		return ERROR_INVALID_DATA;
 
+	DRIVE_FILE_CTRL ctrl = drive->ctrl;
+	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		return ERROR_ACCESS_DENIED;
+	}
+	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_WRITEONLY))
+	{
+		return ERROR_ACCESS_DENIED;
+	}
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
 	Stream_Seek(irp->input, 20); /* Padding */
 	const void* ptr = Stream_ConstPointer(irp->input);
 	if (!Stream_SafeSeek(irp->input, Length))
 		return ERROR_INVALID_DATA;
+
 	file = drive_get_file_by_id(drive, irp->FileId);
 
 	if (!file)
@@ -957,7 +979,7 @@ static UINT drive_register_drive_path(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints,
 			WLog_ERR(TAG, "calloc failed!");
 			return CHANNEL_RC_NO_MEMORY;
 		}
-
+		drive->ctrl = (DRIVE_FILE_CTRL)pEntryPoints->accessCtrl;
 		drive->device.type = RDPDR_DTYP_FILESYSTEM;
 		drive->device.IRPRequest = drive_irp_request;
 		drive->device.Free = drive_free;

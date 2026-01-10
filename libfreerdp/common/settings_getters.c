@@ -2009,6 +2009,9 @@ UINT32 freerdp_settings_get_uint32(WINPR_ATTR_UNUSED const rdpSettings* settings
 		case FreeRDP_VCFlags:
 			return settings->VCFlags;
 
+		case FreeRDP_DriveAccessCtrl:
+			return settings->DriveAccessCtrl;
+
 #if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 		// API Compatibility section, remove with FreeRDP 4.x
 		case (FreeRDP_Settings_Keys_UInt32)FreeRDP_MonitorLocalShiftX:
@@ -2163,7 +2166,9 @@ BOOL freerdp_settings_set_uint32(WINPR_ATTR_UNUSED rdpSettings* settings,
 		case FreeRDP_DeviceScaleFactor:
 			settings->DeviceScaleFactor = cnv.c;
 			break;
-
+		case FreeRDP_DriveAccessCtrl:
+			settings->DriveAccessCtrl = cnv.c;
+			break;
 		case FreeRDP_DrawNineGridCacheEntries:
 			settings->DrawNineGridCacheEntries = cnv.c;
 			break;

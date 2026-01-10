@@ -772,7 +772,8 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 BOOL RedirectDrives);    /* 4288 */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL RedirectHomeDrive); /* 4289 */
 	SETTINGS_DEPRECATED(ALIGN64 char* DrivesToRedirect); /* 4290 */
-	UINT64 padding4416[4416 - 4291];                     /* 4291 */
+	SETTINGS_DEPRECATED(ALIGN64 UINT32 DriveAccessCtrl); /* 4291 */
+	UINT64 padding4416[4416 - 4292];                     /* 4292 */
 
 	/* Smartcard Redirection */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL RedirectSmartCards); /* 4416 */

@@ -31,6 +31,16 @@
 #include <freerdp/channels/log.h>
 
 #define TAG CHANNELS_TAG("drive.client")
+/**
+ * @brief The DRIVE_FILE_CTRL enum 权限控制
+ */
+typedef enum eDRIVE_FILE_CTRL
+{
+	DRIVE_FILE_CTRL_FULL,      // 读写
+	DRIVE_FILE_CTRL_READONLY,  // 只读
+	DRIVE_FILE_CTRL_WRITEONLY, // 只写
+	DRIVE_FILE_CTRL_DISABLE,   // 禁止
+} DRIVE_FILE_CTRL;
 
 typedef struct
 {
