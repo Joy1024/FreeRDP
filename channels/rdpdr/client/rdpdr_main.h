@@ -116,6 +116,7 @@ typedef struct
 	BOOL haveServerCaps;
 
 	RdpdrClientContext context;
+	UINT32 accessCtrl;
 } rdpdrPlugin;
 
 BOOL rdpdr_state_advance(rdpdrPlugin* rdpdr, enum RDPDR_CHANNEL_STATE next);

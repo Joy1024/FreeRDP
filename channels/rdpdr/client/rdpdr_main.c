@@ -1207,7 +1207,8 @@ static UINT rdpdr_add_devices(rdpdrPlugin* rdpdr)
 			}
 		}
 
-		const UINT error = devman_load_device_service(rdpdr->devman, device, rdpdr->rdpcontext);
+		const UINT error =
+		    devman_load_device_service(rdpdr->devman, device, rdpdr->rdpcontext, rdpdr->accessCtrl);
 		if (error)
 		{
 			WLog_Print(rdpdr->log, WLOG_ERROR,
@@ -1239,6 +1240,12 @@ static UINT rdpdr_process_connect(rdpdrPlugin* rdpdr)
 
 	rdpSettings* settings = rdpdr->rdpcontext->settings;
 	WINPR_ASSERT(settings);
+
+	UINT32 dac = freerdp_settings_get_uint32(settings, FreeRDP_DriveAccessCtrl);
+	if (dac >= 0)
+		rdpdr->accessCtrl = dac;
+	else
+		rdpdr->accessCtrl = 0;
 
 	rdpdr->ignoreInvalidDevices = freerdp_settings_get_bool(settings, FreeRDP_IgnoreInvalidDevices);
 
