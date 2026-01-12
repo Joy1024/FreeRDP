@@ -421,10 +421,12 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 BOOL ConnectChildSession);     /* 1609 */
 
 	// 水印设置
-	SETTINGS_DEPRECATED(ALIGN64 char* WM_ComputerName); /* 1610 */
-	SETTINGS_DEPRECATED(ALIGN64 char* WM_CustomerText); /* 1611 */
+	SETTINGS_DEPRECATED(ALIGN64 BOOL WM_enable); /* 1610 */
+	SETTINGS_DEPRECATED(ALIGN64 BOOL WM_IsUseUsername); /* 1611 */
+	SETTINGS_DEPRECATED(ALIGN64 char* WM_ComputerName); /* 1612 */
+	SETTINGS_DEPRECATED(ALIGN64 char* WM_CustomerText); /* 1613 */
 
-	UINT64 padding1664[1664 - 1611];
+	UINT64 padding1664[1664 - 1614];
 
 	/* Names */
 	SETTINGS_DEPRECATED(ALIGN64 char* ComputerName); /* 1664 */
