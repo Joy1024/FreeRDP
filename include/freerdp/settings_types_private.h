@@ -419,7 +419,12 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 BOOL MouseUseRelativeMove);    /* 1607 */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL UseCommonStdioCallbacks); /* 1608 */
 	SETTINGS_DEPRECATED(ALIGN64 BOOL ConnectChildSession);     /* 1609 */
-	UINT64 padding1664[1664 - 1610];                           /* 1610 */
+
+	// 水印设置
+	SETTINGS_DEPRECATED(ALIGN64 char* WM_ComputerName); /* 1610 */
+	SETTINGS_DEPRECATED(ALIGN64 char* WM_CustomerText); /* 1611 */
+
+	UINT64 padding1664[1664 - 1611];
 
 	/* Names */
 	SETTINGS_DEPRECATED(ALIGN64 char* ComputerName); /* 1664 */
@@ -842,10 +847,6 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 TcpConnectTimeout);       /* 5197 */
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 FakeMouseMotionInterval); /* 5198 */
 	UINT64 padding5312[5312 - 5199];                             /* 5199 */
-
-	// 水印设置
-	SETTINGS_DEPRECATED(ALIGN64 char *WM_ComputerName);
-	SETTINGS_DEPRECATED(ALIGN64 char *WM_CustomerText);
 
 	/**
 	 * WARNING: End of ABI stable zone!
