@@ -167,16 +167,6 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 6 * 4 + 8))
 		return ERROR_INVALID_DATA;
 
-	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_WRITEONLY))
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-
 	const uint32_t DesiredAccess = Stream_Get_UINT32(irp->input);
 	const uint64_t allocationSize = Stream_Get_UINT64(irp->input);
 	const uint32_t FileAttributes = Stream_Get_UINT32(irp->input);
@@ -373,7 +363,7 @@ static UINT drive_process_irp_write(DRIVE_DEVICE* drive, IRP* irp)
 	{
 		return ERROR_ACCESS_DENIED;
 	}
-	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_WRITEONLY))
+	if (ctrl != DRIVE_FILE_CTRL_FULL)
 	{
 		return ERROR_ACCESS_DENIED;
 	}
@@ -473,7 +463,7 @@ static UINT drive_process_irp_set_information(DRIVE_DEVICE* drive, IRP* irp)
 	{
 		return ERROR_ACCESS_DENIED;
 	}
-	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_WRITEONLY))
+	if (ctrl != DRIVE_FILE_CTRL_FULL)
 	{
 		return ERROR_ACCESS_DENIED;
 	}
