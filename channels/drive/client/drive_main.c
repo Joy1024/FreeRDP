@@ -178,10 +178,32 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, PathLength))
 		return ERROR_INVALID_DATA;
 
+	DRIVE_FILE_CTRL ctrl = drive->ctrl;
+	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
+		FileId = 0;
+		Information = 0;
+		Stream_Write_UINT32(irp->output, FileId);
+		Stream_Write_UINT8(irp->output, Information);
+		return irp->Complete(irp);
+	}
+
+	if ((CreateDisposition == FILE_CREATE) && ctrl == DRIVE_FILE_CTRL_READONLY)
+	{
+		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
+		FileId = 0;
+		Information = 0;
+		Stream_Write_UINT32(irp->output, FileId);
+		Stream_Write_UINT8(irp->output, Information);
+		return irp->Complete(irp);
+	}
+
 	path = Stream_ConstPointer(irp->input);
 	FileId = irp->devman->id_sequence++;
-	file = drive_file_new(drive->path, path, PathLength / sizeof(WCHAR), FileId, DesiredAccess,
-	                      CreateDisposition, CreateOptions, FileAttributes, SharedAccess);
+	file =
+	    drive_file_new(drive->path, path, PathLength / sizeof(WCHAR), FileId, DesiredAccess,
+	                   CreateDisposition, CreateOptions, FileAttributes, SharedAccess, drive->ctrl);
 
 	if (!file)
 	{
@@ -289,16 +311,6 @@ static UINT drive_process_irp_read(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 12))
 		return ERROR_INVALID_DATA;
 
-	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_READONLY))
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
 	file = drive_get_file_by_id(drive, irp->FileId);
@@ -358,15 +370,6 @@ static UINT drive_process_irp_write(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 32))
 		return ERROR_INVALID_DATA;
 
-	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-	if (ctrl != DRIVE_FILE_CTRL_FULL)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
 	Stream_Seek(irp->input, 20); /* Padding */
@@ -415,16 +418,6 @@ static UINT drive_process_irp_query_information(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 4))
 		return ERROR_INVALID_DATA;
 
-	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-	if (!(ctrl == DRIVE_FILE_CTRL_FULL || ctrl == DRIVE_FILE_CTRL_READONLY))
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-
 	Stream_Read_UINT32(irp->input, FsInformationClass);
 	file = drive_get_file_by_id(drive, irp->FileId);
 
@@ -457,16 +450,6 @@ static UINT drive_process_irp_set_information(DRIVE_DEVICE* drive, IRP* irp)
 
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 32))
 		return ERROR_INVALID_DATA;
-
-	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
-	if (ctrl != DRIVE_FILE_CTRL_FULL)
-	{
-		return ERROR_ACCESS_DENIED;
-	}
 
 	Stream_Read_UINT32(irp->input, FsInformationClass);
 	Stream_Read_UINT32(irp->input, Length);
@@ -876,7 +859,6 @@ fail:
 		setChannelError(drive->rdpcontext, error, "drive_thread_func reported an error");
 
 	ExitThread(error);
-	WLog_ERR(TAG, "drive_thread_func exited!");
 	return error;
 }
 

@@ -56,6 +56,7 @@ typedef struct
 	UINT32 DesiredAccess;
 	UINT32 CreateDisposition;
 	UINT32 CreateOptions;
+	DRIVE_FILE_CTRL Ctrl;
 } DRIVE_FILE;
 
 DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 PathWCharLength,

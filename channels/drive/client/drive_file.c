@@ -216,6 +216,15 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 		}
 		else
 		{
+			if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+			{
+				if (file->CreateDisposition == TRUNCATE_EXISTING)
+				{
+					SetLastError(ERROR_ACCESS_DENIED);
+					return FALSE;
+				}
+			}
+
 			if (file->CreateOptions & FILE_DIRECTORY_FILE)
 			{
 				SetLastError(ERROR_DIRECTORY);
@@ -285,6 +294,7 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 #ifndef WIN32
 		file->SharedAccess = 0;
 #endif
+		DEBUG_WSTR("CreateFileW: %s", file->fullpath);
 		file->file_handle = CreateFileW(file->fullpath, file->DesiredAccess, file->SharedAccess,
 		                                NULL, CreateDisposition, file->FileAttributes, NULL);
 	}
@@ -319,7 +329,8 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 
 DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 PathWCharLength,
                            UINT32 id, UINT32 DesiredAccess, UINT32 CreateDisposition,
-                           UINT32 CreateOptions, UINT32 FileAttributes, UINT32 SharedAccess)
+                           UINT32 CreateOptions, UINT32 FileAttributes, UINT32 SharedAccess,
+                           DRIVE_FILE_CTRL ctrl)
 {
 	if (!base_path || (!path && (PathWCharLength > 0)))
 		return NULL;
@@ -341,7 +352,7 @@ DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 Pat
 	file->CreateDisposition = CreateDisposition;
 	file->CreateOptions = CreateOptions;
 	file->SharedAccess = SharedAccess;
-
+	file->Ctrl = ctrl;
 	WCHAR* p = drive_file_combine_fullpath(base_path, path, PathWCharLength);
 	(void)drive_file_set_fullpath(file, p);
 	free(p);
@@ -381,6 +392,8 @@ BOOL drive_file_free(DRIVE_FILE* file)
 
 	if (file->delete_pending)
 	{
+
+		WLog_INFO(TAG, "DeleteFileW:%ws", file->fullpath);
 		if (file->is_dir)
 		{
 			if (!winpr_RemoveDirectory_RecursiveW(file->fullpath))
@@ -421,6 +434,12 @@ BOOL drive_file_read(DRIVE_FILE* file, BYTE* buffer, UINT32* Length)
 
 	DEBUG_WSTR("Read file %s", file->fullpath);
 
+	if (file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
+
 	if (ReadFile(file->file_handle, buffer, *Length, &read, NULL))
 	{
 		*Length = read;
@@ -438,7 +457,16 @@ BOOL drive_file_write(DRIVE_FILE* file, const BYTE* buffer, UINT32 Length)
 		return FALSE;
 
 	DEBUG_WSTR("Write file %s", file->fullpath);
-
+	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
+	if (file->DesiredAccess & GENERIC_READ)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
 	while (Length > 0)
 	{
 		if (!WriteFile(file->file_handle, buffer, Length, &written, NULL))
@@ -597,7 +625,8 @@ BOOL drive_file_query_information(DRIVE_FILE* file, UINT32 FsInformationClass, w
 		return drive_file_query_from_handle_information(file, &fileInformation, FsInformationClass,
 		                                                output);
 
-	hFile = CreateFileW(file->fullpath, 0, FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
+	WLog_INFO(TAG, "CreateFileW: %ws", file->fullpath);
+	hFile = CreateFileW(file->fullpath, GENERIC_READ, FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
 	                    FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile != INVALID_HANDLE_VALUE)
 	{
@@ -785,8 +814,14 @@ static BOOL drive_file_set_disposition_information(DRIVE_FILE* file, UINT32 Leng
 	if (delete_pending)
 	{
 		DEBUG_WSTR("SetDeletePending %s", file->fullpath);
-		const uint32_t attr = GetFileAttributesW(file->fullpath);
 
+		if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+		{
+			SetLastError(ERROR_ACCESS_DENIED);
+			return FALSE;
+		}
+
+		const uint32_t attr = GetFileAttributesW(file->fullpath);
 		if (attr & FILE_ATTRIBUTE_READONLY)
 		{
 			SetLastError(ERROR_ACCESS_DENIED);
@@ -826,6 +861,12 @@ static BOOL drive_file_set_rename_information(DRIVE_FILE* file, UINT32 Length, w
 
 	if (!fullpath)
 		return FALSE;
+
+	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
 
 #ifdef _WIN32
 
