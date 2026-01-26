@@ -38,7 +38,6 @@ typedef enum eDRIVE_FILE_CTRL
 {
 	DRIVE_FILE_CTRL_FULL = 0, // 0 读写
 	DRIVE_FILE_CTRL_READONLY, // 1 只读
-	DRIVE_FILE_CTRL_DISABLE,  // 2 禁止
 } DRIVE_FILE_CTRL;
 
 typedef struct
@@ -59,14 +58,14 @@ typedef struct
 	DRIVE_FILE_CTRL Ctrl;
 } DRIVE_FILE;
 
-DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 PathWCharLength,
+DRIVE_FILE *drive_file_new(const WCHAR *base_path, const WCHAR *path, UINT32 PathWCharLength,
                            UINT32 id, UINT32 DesiredAccess, UINT32 CreateDisposition,
-                           UINT32 CreateOptions, UINT32 FileAttributes, UINT32 SharedAccess);
-BOOL drive_file_free(DRIVE_FILE* file);
-
-BOOL drive_file_open(DRIVE_FILE* file);
+                           UINT32 CreateOptions, UINT32 FileAttributes, UINT32 SharedAccess,
+                           DRIVE_FILE_CTRL Ctrl);
+// BOOL drive_file_free(DRIVE_FILE* file);
+// BOOL drive_file_open(DRIVE_FILE* file);
 BOOL drive_file_seek(DRIVE_FILE* file, UINT64 Offset);
-BOOL drive_file_read(DRIVE_FILE* file, BYTE* buffer, UINT32* Length);
+// BOOL drive_file_read(DRIVE_FILE* file, BYTE* buffer, UINT32* Length);
 BOOL drive_file_write(DRIVE_FILE* file, const BYTE* buffer, UINT32 Length);
 BOOL drive_file_query_information(DRIVE_FILE* file, UINT32 FsInformationClass, wStream* output);
 BOOL drive_file_set_information(DRIVE_FILE* file, UINT32 FsInformationClass, UINT32 Length,

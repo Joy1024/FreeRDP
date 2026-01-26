@@ -216,7 +216,7 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 		}
 		else
 		{
-			if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+			if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
 			{
 				if (file->CreateDisposition == TRUNCATE_EXISTING)
 				{
@@ -434,12 +434,6 @@ BOOL drive_file_read(DRIVE_FILE* file, BYTE* buffer, UINT32* Length)
 
 	DEBUG_WSTR("Read file %s", file->fullpath);
 
-	if (file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		SetLastError(ERROR_ACCESS_DENIED);
-		return FALSE;
-	}
-
 	if (ReadFile(file->file_handle, buffer, *Length, &read, NULL))
 	{
 		*Length = read;
@@ -457,7 +451,7 @@ BOOL drive_file_write(DRIVE_FILE* file, const BYTE* buffer, UINT32 Length)
 		return FALSE;
 
 	DEBUG_WSTR("Write file %s", file->fullpath);
-	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
 	{
 		SetLastError(ERROR_ACCESS_DENIED);
 		return FALSE;
@@ -815,7 +809,7 @@ static BOOL drive_file_set_disposition_information(DRIVE_FILE* file, UINT32 Leng
 	{
 		DEBUG_WSTR("SetDeletePending %s", file->fullpath);
 
-		if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
+		if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
 		{
 			SetLastError(ERROR_ACCESS_DENIED);
 			return FALSE;
@@ -862,12 +856,6 @@ static BOOL drive_file_set_rename_information(DRIVE_FILE* file, UINT32 Length, w
 	if (!fullpath)
 		return FALSE;
 
-	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY || file->Ctrl == DRIVE_FILE_CTRL_DISABLE)
-	{
-		SetLastError(ERROR_ACCESS_DENIED);
-		return FALSE;
-	}
-
 #ifdef _WIN32
 
 	if (file->file_handle != INVALID_HANDLE_VALUE)
@@ -908,6 +896,11 @@ BOOL drive_file_set_information(DRIVE_FILE* file, UINT32 FsInformationClass, UIN
 	if (!Stream_CheckAndLogRequiredLength(TAG, input, Length))
 		return FALSE;
 
+	if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
+	{
+		SetLastError(ERROR_ACCESS_DENIED);
+		return FALSE;
+	}
 	switch (FsInformationClass)
 	{
 		case FileBasicInformation:

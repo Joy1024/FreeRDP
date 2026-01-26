@@ -179,7 +179,15 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 		return ERROR_INVALID_DATA;
 
 	DRIVE_FILE_CTRL ctrl = drive->ctrl;
-	if (ctrl == DRIVE_FILE_CTRL_DISABLE)
+
+	// 故FILE_SUPERSEDE、FILE_OPEN_IF、FILE_OVERWRITE、FILE_OVERWRITE_IF也需要处理。
+	//     对于FILE_OPEN_IF，还需要判断DesiredAccess属性，如果是0x000002（请求写权限）和0x0000003（请求读写权限），则需要拦截
+
+	BOOL created = CreateDisposition == FILE_SUPERSEDE        // 重建+覆盖+新建
+	               || CreateDisposition == FILE_OVERWRITE     // 覆盖+失败
+	               || CreateDisposition == FILE_OVERWRITE_IF; // 覆盖+新建
+
+	if (created && ctrl == DRIVE_FILE_CTRL_READONLY)
 	{
 		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
 		FileId = 0;
@@ -189,7 +197,8 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 		return irp->Complete(irp);
 	}
 
-	if ((CreateDisposition == FILE_CREATE) && ctrl == DRIVE_FILE_CTRL_READONLY)
+	if (CreateDisposition == FILE_OPEN_IF && DesiredAccess == GENERIC_WRITE &&
+	    ctrl == DRIVE_FILE_CTRL_READONLY)
 	{
 		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
 		FileId = 0;
@@ -201,9 +210,9 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 
 	path = Stream_ConstPointer(irp->input);
 	FileId = irp->devman->id_sequence++;
-	file =
-	    drive_file_new(drive->path, path, PathLength / sizeof(WCHAR), FileId, DesiredAccess,
-	                   CreateDisposition, CreateOptions, FileAttributes, SharedAccess, drive->ctrl);
+	file = drive_file_new(drive->path, path, PathLength / sizeof(WCHAR), FileId, //
+	                      DesiredAccess, CreateDisposition, CreateOptions, FileAttributes,
+	                      SharedAccess, drive->ctrl);
 
 	if (!file)
 	{
@@ -370,6 +379,17 @@ static UINT drive_process_irp_write(DRIVE_DEVICE* drive, IRP* irp)
 	if (!Stream_CheckAndLogRequiredLength(TAG, irp->input, 32))
 		return ERROR_INVALID_DATA;
 
+	if (drive->ctrl == DRIVE_FILE_CTRL_READONLY)
+	{
+		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
+
+		Stream_Write_UINT32(irp->output, Length);
+		Stream_Write_UINT8(irp->output, 0); /* Padding */
+
+		WINPR_ASSERT(irp->Complete);
+		return irp->Complete(irp);
+	}
+
 	Stream_Read_UINT32(irp->input, Length);
 	Stream_Read_UINT64(irp->input, Offset);
 	Stream_Seek(irp->input, 20); /* Padding */
@@ -452,10 +472,18 @@ static UINT drive_process_irp_set_information(DRIVE_DEVICE* drive, IRP* irp)
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(irp->input, FsInformationClass);
-	Stream_Read_UINT32(irp->input, Length);
-	Stream_Seek(irp->input, 24); /* Padding */
-	file = drive_get_file_by_id(drive, irp->FileId);
+	Stream_Write_UINT32(irp->output, Length);
 
+	if (drive->ctrl == DRIVE_FILE_CTRL_READONLY)
+	{
+		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
+		WINPR_ASSERT(irp->Complete);
+		return irp->Complete(irp);
+	}
+
+	Stream_Seek(irp->input, 24); /* Padding */
+
+	file = drive_get_file_by_id(drive, irp->FileId);
 	if (!file)
 	{
 		irp->IoStatus = STATUS_UNSUCCESSFUL;
@@ -505,7 +533,7 @@ static UINT drive_process_irp_query_volume_information(DRIVE_DEVICE* drive, IRP*
 		{
 			/* http://msdn.microsoft.com/en-us/library/cc232108.aspx */
 			const WCHAR* volumeLabel =
-			    InitializeConstWCharFromUtf8("FREERDP", LabelBuffer, ARRAYSIZE(LabelBuffer));
+			    InitializeConstWCharFromUtf8("MDP", LabelBuffer, ARRAYSIZE(LabelBuffer));
 			const size_t volumeLabelLen = (_wcslen(volumeLabel) + 1) * sizeof(WCHAR);
 			const size_t length = 17ul + volumeLabelLen;
 
@@ -985,11 +1013,15 @@ static UINT drive_register_drive_path(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints,
 			WLog_ERR(TAG, "calloc failed!");
 			return CHANNEL_RC_NO_MEMORY;
 		}
+
+		WLog_INFO(TAG, "Read accessCtrl:%u", pEntryPoints->accessCtrl);
 		if (pEntryPoints->accessCtrl >= DRIVE_FILE_CTRL_FULL &&
-		    pEntryPoints->accessCtrl <= DRIVE_FILE_CTRL_DISABLE)
+		    pEntryPoints->accessCtrl <= DRIVE_FILE_CTRL_READONLY)
 			drive->ctrl = (DRIVE_FILE_CTRL)pEntryPoints->accessCtrl;
 		else
 			drive->ctrl = DRIVE_FILE_CTRL_FULL;
+		WLog_INFO(TAG, "The DRIVE_FILE_CTRL is:%u", drive->ctrl);
+
 		drive->device.type = RDPDR_DTYP_FILESYSTEM;
 		drive->device.IRPRequest = drive_irp_request;
 		drive->device.Free = drive_free;
