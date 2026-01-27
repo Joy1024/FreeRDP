@@ -291,6 +291,15 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 				break;
 		}
 
+		if ((CreateDisposition == CREATE_ALWAYS //
+		     || CreateDisposition == CREATE_NEW //
+		     || CreateDisposition == TRUNCATE_EXISTING) &&
+		    file->Ctrl == DRIVE_FILE_CTRL_READONLY)
+		{
+			SetLastError(ERROR_ACCESS_DENIED);
+			return FALSE;
+		}
+
 #ifndef WIN32
 		file->SharedAccess = 0;
 #endif
