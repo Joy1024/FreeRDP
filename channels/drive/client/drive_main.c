@@ -74,13 +74,16 @@ static NTSTATUS drive_map_windows_err(DWORD fs_errno)
 
 	switch (fs_errno)
 	{
-		case STATUS_SUCCESS:
+		case ERROR_SUCCESS:
 			rc = STATUS_SUCCESS;
 			break;
 
 		case ERROR_ACCESS_DENIED:
-		case ERROR_SHARING_VIOLATION:
 			rc = STATUS_ACCESS_DENIED;
+			break;
+
+		case ERROR_SHARING_VIOLATION:
+			rc = STATUS_SHARING_VIOLATION;
 			break;
 
 		case ERROR_FILE_NOT_FOUND:
@@ -212,11 +215,13 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 	FileId = irp->devman->id_sequence++;
 	file = drive_file_new(drive->path, path, PathLength / sizeof(WCHAR), FileId, //
 	                      DesiredAccess, CreateDisposition, CreateOptions, FileAttributes,
-	                      SharedAccess, drive->ctrl);
+	                      SharedAccess, ctrl);
 
 	if (!file)
 	{
-		irp->IoStatus = drive_map_windows_err(GetLastError());
+		DWORD error = GetLastError();
+		PRINT_ERROR(error);
+		irp->IoStatus = drive_map_windows_err(error);
 		FileId = 0;
 		Information = 0;
 	}
@@ -472,14 +477,14 @@ static UINT drive_process_irp_set_information(DRIVE_DEVICE* drive, IRP* irp)
 		return ERROR_INVALID_DATA;
 
 	Stream_Read_UINT32(irp->input, FsInformationClass);
-	Stream_Write_UINT32(irp->output, Length);
+	Stream_Read_UINT32(irp->input, Length);
 
-	if (drive->ctrl == DRIVE_FILE_CTRL_READONLY)
-	{
-		irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
-		WINPR_ASSERT(irp->Complete);
-		return irp->Complete(irp);
-	}
+	// if (drive->ctrl == DRIVE_FILE_CTRL_READONLY)
+	// {
+	// 	irp->IoStatus = drive_map_windows_err(ERROR_ACCESS_DENIED);
+	// 	WINPR_ASSERT(irp->Complete);
+	// 	return irp->Complete(irp);
+	// }
 
 	Stream_Seek(irp->input, 24); /* Padding */
 

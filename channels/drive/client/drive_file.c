@@ -190,6 +190,8 @@ static BOOL drive_file_set_fullpath(DRIVE_FILE* file, const WCHAR* fullpath)
 
 static BOOL drive_file_init(DRIVE_FILE* file)
 {
+	WLog_ERR(TAG, "drive_file_init: %ws", file->fullpath);
+
 	UINT CreateDisposition = 0;
 	DWORD dwAttr = GetFileAttributesW(file->fullpath);
 
@@ -235,13 +237,19 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 	else
 	{
 		file->is_dir = ((file->CreateOptions & FILE_DIRECTORY_FILE) ? TRUE : FALSE);
-
 		if (file->is_dir)
 		{
 			/* Should only create the directory if the disposition allows for it */
 			if ((file->CreateDisposition == FILE_OPEN_IF) ||
 			    (file->CreateDisposition == FILE_CREATE))
 			{
+				if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
+				{
+					SetLastError(ERROR_ACCESS_DENIED);
+					return FALSE;
+				}
+
+				DEBUG_WSTR("CreateDirectoryW: %s", file->fullpath);
 				if (CreateDirectoryW(file->fullpath, NULL) != 0)
 				{
 					return TRUE;
@@ -291,10 +299,7 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 				break;
 		}
 
-		if ((CreateDisposition == CREATE_ALWAYS //
-		     || CreateDisposition == CREATE_NEW //
-		     || CreateDisposition == TRUNCATE_EXISTING) &&
-		    file->Ctrl == DRIVE_FILE_CTRL_READONLY)
+		if (file->Ctrl == DRIVE_FILE_CTRL_READONLY)
 		{
 			SetLastError(ERROR_ACCESS_DENIED);
 			return FALSE;
@@ -313,23 +318,7 @@ static BOOL drive_file_init(DRIVE_FILE* file)
 	{
 		/* Get the error message, if any. */
 		DWORD errorMessageID = GetLastError();
-
-		if (errorMessageID != 0)
-		{
-			LPSTR messageBuffer = NULL;
-			size_t size =
-			    FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-			                       FORMAT_MESSAGE_IGNORE_INSERTS,
-			                   NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-			                   (LPSTR)&messageBuffer, 0, NULL);
-			char fullpath[MAX_PATH] = { 0 };
-			(void)ConvertWCharToUtf8(file->fullpath, fullpath, sizeof(fullpath));
-			WLog_ERR(TAG, "Error in drive_file_init: %s %s", messageBuffer, fullpath);
-			/* Free the buffer. */
-			LocalFree(messageBuffer);
-			/* restore original error code */
-			SetLastError(errorMessageID);
-		}
+		PRINT_ERROR(errorMessageID);
 	}
 #endif
 
@@ -362,6 +351,7 @@ DRIVE_FILE* drive_file_new(const WCHAR* base_path, const WCHAR* path, UINT32 Pat
 	file->CreateOptions = CreateOptions;
 	file->SharedAccess = SharedAccess;
 	file->Ctrl = ctrl;
+
 	WCHAR* p = drive_file_combine_fullpath(base_path, path, PathWCharLength);
 	(void)drive_file_set_fullpath(file, p);
 	free(p);
@@ -401,15 +391,24 @@ BOOL drive_file_free(DRIVE_FILE* file)
 
 	if (file->delete_pending)
 	{
-
-		WLog_INFO(TAG, "DeleteFileW:%ws", file->fullpath);
 		if (file->is_dir)
 		{
+			DEBUG_WSTR("RemoveDirectory: %s", file->fullpath);
 			if (!winpr_RemoveDirectory_RecursiveW(file->fullpath))
+			{
+				WLog_ERR(TAG, "RemoveDirectory failed: %d", GetLastError());
 				goto fail;
+			}
 		}
-		else if (!DeleteFileW(file->fullpath))
-			goto fail;
+		else
+		{
+			DEBUG_WSTR("DeleteFileW: %s", file->fullpath);
+			if (!DeleteFileW(file->fullpath))
+			{
+				WLog_ERR(TAG, "DeleteFileW failed: %d", GetLastError());
+				goto fail;
+			}
+		}
 	}
 
 	rc = TRUE;
@@ -628,7 +627,7 @@ BOOL drive_file_query_information(DRIVE_FILE* file, UINT32 FsInformationClass, w
 		return drive_file_query_from_handle_information(file, &fileInformation, FsInformationClass,
 		                                                output);
 
-	WLog_INFO(TAG, "CreateFileW: %ws", file->fullpath);
+	DEBUG_WSTR("CreateFileW: %s", file->fullpath);
 	hFile = CreateFileW(file->fullpath, GENERIC_READ, FILE_SHARE_DELETE, NULL, OPEN_EXISTING,
 	                    FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile != INVALID_HANDLE_VALUE)
@@ -874,7 +873,7 @@ static BOOL drive_file_set_rename_information(DRIVE_FILE* file, UINT32 Length, w
 	}
 
 #endif
-	DEBUG_WSTR("MoveFileExW %s", file->fullpath);
+	WLog_INFO(TAG, "MoveFileExW => %ws", fullpath);
 
 	if (MoveFileExW(file->fullpath, fullpath,
 	                MOVEFILE_COPY_ALLOWED | (ReplaceIfExists ? MOVEFILE_REPLACE_EXISTING : 0)))
