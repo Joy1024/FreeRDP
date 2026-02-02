@@ -2328,7 +2328,7 @@ static UINT rdpdr_register_device(RdpdrClientContext* context, const RDPDR_DEVIC
 	RDPDR_DEVICE* copy = freerdp_device_clone(device);
 	if (!copy)
 		return ERROR_INVALID_DATA;
-	UINT rc = devman_load_device_service(rdpdr->devman, copy, rdpdr->rdpcontext);
+	UINT rc = devman_load_device_service(rdpdr->devman, copy, rdpdr->rdpcontext, rdpdr->accessCtrl);
 	*pid = copy->Id;
 	freerdp_device_free(copy);
 	if (rc == CHANNEL_RC_OK)
