@@ -685,6 +685,8 @@ static DVCMAN_CHANNEL* dvcman_create_channel(drdynvcPlugin* drdynvc,
 	WINPR_ASSERT(dvcman);
 	WINPR_ASSERT(res);
 
+	WLog_Print(drdynvc->log, WLOG_DEBUG, "%s: %s", __func__, ChannelName);
+
 	HashTable_Lock(dvcman->listeners);
 	listener = (DVCMAN_LISTENER*)HashTable_GetItemValue(dvcman->listeners, ChannelName);
 	if (!listener)

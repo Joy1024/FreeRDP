@@ -66,6 +66,8 @@ typedef struct
 	wLog* log;
 	IWTSListener* listener;
 	BOOL initialized;
+
+	UINT32 redirect_action;
 } URBDRC_PLUGIN;
 
 typedef BOOL (*PREGISTERURBDRCSERVICE)(IWTSPlugin* plugin, IUDEVMAN* udevman);
@@ -214,6 +216,27 @@ struct S_IUDEVMAN
 #define DEVICE_ADD_FLAG_ALL                                               \
 	(DEVICE_ADD_FLAG_BUS | DEVICE_ADD_FLAG_DEV | DEVICE_ADD_FLAG_VENDOR | \
 	 DEVICE_ADD_FLAG_PRODUCT | DEVICE_ADD_FLAG_REGISTER)
+
+static IWTSVirtualChannel *get_channel(IUDEVMAN *idevman)
+{
+	IWTSVirtualChannelManager *channel_mgr = NULL;
+	URBDRC_PLUGIN *urbdrc = NULL;
+
+	if (!idevman)
+		return NULL;
+
+	urbdrc = (URBDRC_PLUGIN *)idevman->plugin;
+
+	if (!urbdrc || !urbdrc->listener_callback)
+		return NULL;
+
+	channel_mgr = urbdrc->listener_callback->channel_mgr;
+
+	if (!channel_mgr)
+		return NULL;
+
+	return channel_mgr->FindChannelById(channel_mgr, idevman->controlChannelId);
+}
 
 FREERDP_API BOOL add_device(IUDEVMAN* idevman, UINT32 flags, BYTE busnum, BYTE devnum,
                             UINT16 idVendor, UINT16 idProduct);

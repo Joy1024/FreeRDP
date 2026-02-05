@@ -64,6 +64,14 @@ typedef struct
 
 typedef struct
 {
+	UINT16 vid;
+	UINT16 pid;
+	uint8_t bus;
+	uint8_t addr;
+} UDEV_ITEM;
+
+typedef struct
+{
 	IUDEVMAN iface;
 
 	IUDEVICE* idev; /* iterator device */
@@ -81,6 +89,8 @@ typedef struct
 	HANDLE devman_loading;
 	libusb_context* context;
 	HANDLE thread;
+	HANDLE helper;
+	wArrayList* helper_vid_pids;
 	BOOL running;
 } UDEVMAN;
 typedef UDEVMAN* PUDEVMAN;
@@ -141,6 +151,7 @@ static IUDEVICE* udevman_get_udevice_by_addr(IUDEVMAN* idevman, BYTE bus_number,
 static size_t udevman_register_udevice(IUDEVMAN* idevman, BYTE bus_number, BYTE dev_number,
                                        UINT16 idVendor, UINT16 idProduct, UINT32 flag)
 {
+
 	UDEVMAN* udevman = (UDEVMAN*)idevman;
 	IUDEVICE* pdev = NULL;
 	IUDEVICE** devArray = NULL;
@@ -152,18 +163,24 @@ static size_t udevman_register_udevice(IUDEVMAN* idevman, BYTE bus_number, BYTE 
 		return 0;
 
 	urbdrc = (URBDRC_PLUGIN*)idevman->plugin;
+	WLog_Print(urbdrc->log, WLOG_DEBUG, __func__);
+
 	pdev = udevman_get_udevice_by_addr(idevman, bus_number, dev_number);
-
 	if (pdev != NULL)
+	{
+		WLog_WARN(TAG, "Failed to get udevice by addr!");
 		return 0;
-
+	}
 	if (flag & UDEVMAN_FLAG_ADD_BY_ADDR)
 	{
 		UINT32 id = 0;
 		IUDEVICE* tdev = udev_new_by_addr(urbdrc, udevman->context, bus_number, dev_number);
 
 		if (tdev == NULL)
+		{
+			WLog_WARN(TAG, "Failed to new udevice by addr!");
 			return 0;
+		}
 
 		id = idevman->get_next_device_id(idevman);
 		tdev->set_UsbDevice(tdev, id);
@@ -471,6 +488,12 @@ static void udevman_free(IUDEVMAN* idevman)
 	{
 		(void)WaitForSingleObject(udevman->thread, INFINITE);
 		(void)CloseHandle(udevman->thread);
+	}
+
+	if (udevman->helper)
+	{
+		(void)WaitForSingleObject(udevman->helper, INFINITE);
+		(void)CloseHandle(udevman->helper);
 	}
 
 	udevman_unregister_all_udevices(idevman);
@@ -858,12 +881,100 @@ static BOOL poll_libusb_events(UDEVMAN* udevman)
 	return rc > 0;
 }
 
+static DWORD WINAPI helper_thread(LPVOID lpThreadParameter)
+{
+	UDEV_ITEM pair;
+	UDEVMAN* udevman = (UDEVMAN*)lpThreadParameter;
+	while (udevman->running)
+	{
+		IWTSVirtualChannel* channel = NULL;
+		if ((channel = get_channel(udevman)) != NULL)
+		{
+			libusb_device** list = NULL;
+			ssize_t cnt = libusb_get_device_list(udevman->context, &list);
+			if (cnt > 0)
+			{
+				// 存在设备进行添加到服务器端
+				WLog_DBG(TAG, "Found USB devices: %u", cnt);
+
+				for (int i = 0; i < cnt; i++)
+				{
+					libusb_device* dev = list[i];
+					struct libusb_device_descriptor desc;
+
+					int r = libusb_get_device_descriptor(dev, &desc);
+					if (r == 0)
+					{
+						const uint8_t bus = libusb_get_bus_number(dev);
+						const uint8_t addr = libusb_get_device_address(dev);
+
+						WLog_DBG(TAG, "USB device Bus:%03d Addr:%03d ID: %04x:%04x", bus, addr,
+						         desc.idVendor, desc.idProduct);
+
+						Sleep(1000);
+
+						pair.vid = desc.idVendor;
+						pair.pid = desc.idProduct;
+						pair.bus = bus;
+						pair.addr = addr;
+						if (!ArrayList_Contains(udevman->helper_vid_pids, &pair))
+						{
+							BOOL added = add_device(&udevman->iface,     //
+							                        DEVICE_ADD_FLAG_ALL, //
+							                        bus,                 //
+							                        addr,                //
+							                        desc.idVendor, desc.idProduct);
+							WLog_DBG(TAG, "\t The USB device is aded=>%d", added);
+							if (added)
+							{
+								// 添加成功之后，保存设备到缓存
+								UDEV_ITEM* dev_added = calloc(1, sizeof(UDEV_ITEM));
+								dev_added->vid = desc.idVendor;
+								dev_added->pid = desc.idProduct;
+								dev_added->bus = bus;
+								dev_added->addr = addr;
+								if (!ArrayList_Append(udevman->helper_vid_pids, dev_added))
+								{
+									free(dev_added);
+
+									// 移除设备
+									del_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, bus, addr,
+									           desc.idVendor, desc.idProduct);
+								}
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				size_t pos = 0;
+				while (pos < ArrayList_Count(udevman->helper_vid_pids))
+				{
+					UDEV_ITEM* item = ArrayList_GetItem(udevman->helper_vid_pids, pos);
+					WINPR_ASSERT(item);
+
+					WLog_DBG(TAG, "Removed USB device ID: %04x:%04x", item->vid, item->pid);
+					BOOL dev_deleted = del_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, //
+					                              item->bus, item->addr, item->vid, item->pid);
+					WLog_DBG(TAG, "Is deleted=>%d", dev_deleted);
+					ArrayList_RemoveAt(udevman->helper_vid_pids, pos);
+				}
+			}
+			// 释放列表
+			libusb_free_device_list(list, 1);
+		}
+	}
+	WLog_INFO(TAG, "USB helper is exited.");
+}
+
 static DWORD WINAPI poll_thread(LPVOID lpThreadParameter)
+
 {
 	libusb_hotplug_callback_handle handle = 0;
 	UDEVMAN* udevman = (UDEVMAN*)lpThreadParameter;
 	BOOL hasHotplug = libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG);
-
+	WLog_WARN(TAG, "libusb_has_capability LIBUSB_CAP_HAS_HOTPLUG: %d", hasHotplug);
 	if (hasHotplug)
 	{
 		int rc = libusb_hotplug_register_callback(
@@ -876,8 +987,10 @@ static DWORD WINAPI poll_thread(LPVOID lpThreadParameter)
 			udevman->running = FALSE;
 	}
 	else
+	{
 		WLog_WARN(TAG, "Platform does not support libusb hotplug. USB devices plugged in later "
 		               "will not be detected.");
+	}
 
 	while (udevman->running)
 	{
@@ -898,6 +1011,7 @@ static DWORD WINAPI poll_thread(LPVOID lpThreadParameter)
 FREERDP_ENTRY_POINT(UINT VCAPITYPE libusb_freerdp_urbdrc_client_subsystem_entry(
     PFREERDP_URBDRC_SERVICE_ENTRY_POINTS pEntryPoints))
 {
+	WLog_INFO(TAG, "PFREERDP_URBDRC entery point initializing...");
 	wObject* obj = NULL;
 	UINT status = 0;
 	UDEVMAN* udevman = NULL;
@@ -910,6 +1024,7 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE libusb_freerdp_urbdrc_client_subsystem_entry(
 	udevman->hotplug_vid_pids = ArrayList_New(TRUE);
 	if (!udevman->hotplug_vid_pids)
 		goto fail;
+
 	obj = ArrayList_Object(udevman->hotplug_vid_pids);
 	obj->fnObjectFree = free;
 	obj->fnObjectEquals = udevman_vid_pid_pair_equals;
@@ -955,10 +1070,24 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE libusb_freerdp_urbdrc_client_subsystem_entry(
 
 	udevman->running = TRUE;
 	udevman->thread = CreateThread(NULL, 0, poll_thread, udevman, 0, NULL);
-
 	if (!udevman->thread)
 		goto fail;
 
+	BOOL hasHotplug = libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG);
+	if (!hasHotplug)
+	{
+		udevman->helper = CreateThread(NULL, 0, helper_thread, udevman, 0, NULL);
+		if (!udevman->helper)
+			goto fail;
+
+		udevman->helper_vid_pids = ArrayList_New(TRUE);
+		if (!udevman->helper_vid_pids)
+			goto fail;
+
+		wObject* obj1 = ArrayList_Object(udevman->helper_vid_pids);
+		obj1->fnObjectFree = free;
+		obj1->fnObjectEquals = udevman_vid_pid_pair_equals;
+	}
 	if (!pEntryPoints->pRegisterUDEVMAN(pEntryPoints->plugin, (IUDEVMAN*)udevman))
 		goto fail;
 

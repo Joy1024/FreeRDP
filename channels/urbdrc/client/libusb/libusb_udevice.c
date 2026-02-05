@@ -501,7 +501,7 @@ static LIBUSB_DEVICE* udev_get_libusb_dev(libusb_context* context, uint8_t bus_n
 	LIBUSB_DEVICE** libusb_list = NULL;
 	LIBUSB_DEVICE* device = NULL;
 	const ssize_t total_device = libusb_get_device_list(context, &libusb_list);
-
+	WLog_WARN(TAG, "libusb_get_device_list devices: %d", total_device);
 	for (ssize_t i = 0; i < total_device; i++)
 	{
 		LIBUSB_DEVICE* dev = libusb_list[i];
@@ -1199,23 +1199,20 @@ static int libusb_udev_query_device_port_status(IUDEVICE* idev, UINT32* UsbdStat
 
 	urbdrc = pdev->urbdrc;
 
-	if (pdev->hub_handle != NULL)
-	{
-		ret = idev->control_transfer(
-		    idev, 0xffff, 0, 0,
-		    (uint8_t)LIBUSB_ENDPOINT_IN | (uint8_t)LIBUSB_REQUEST_TYPE_CLASS |
-		        (uint8_t)LIBUSB_RECIPIENT_OTHER,
-		    LIBUSB_REQUEST_GET_STATUS, 0, pdev->port_number, UsbdStatus, BufferSize, Buffer, 1000);
+	ret = idev->control_transfer(idev, 0xffff, 0, 0,
+	                             (uint8_t)LIBUSB_ENDPOINT_IN | (uint8_t)LIBUSB_REQUEST_TYPE_CLASS |
+	                                 (uint8_t)LIBUSB_RECIPIENT_OTHER,
+	                             LIBUSB_REQUEST_GET_STATUS, 0, pdev->port_number, UsbdStatus,
+	                             BufferSize, Buffer, 1000);
 
-		if (log_libusb_result(urbdrc->log, WLOG_DEBUG, "libusb_control_transfer", ret))
-			*BufferSize = 0;
-		else
-		{
-			WLog_Print(urbdrc->log, WLOG_DEBUG,
-			           "PORT STATUS:0x%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "", Buffer[3],
-			           Buffer[2], Buffer[1], Buffer[0]);
-			success = 1;
-		}
+	if (log_libusb_result(urbdrc->log, WLOG_DEBUG, "libusb_control_transfer", ret))
+		*BufferSize = 0;
+	else
+	{
+		WLog_Print(urbdrc->log, WLOG_DEBUG,
+		           "PORT STATUS:0x%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "%02" PRIx8 "", Buffer[3],
+		           Buffer[2], Buffer[1], Buffer[0]);
+		success = 1;
 	}
 
 	return success;
@@ -1662,9 +1659,9 @@ static int udev_get_hub_handle(URBDRC_PLUGIN* urbdrc, libusb_context* ctx, UDEVI
 	for (ssize_t i = 0; i < total_device; i++)
 	{
 		LIBUSB_DEVICE* dev = libusb_list[i];
-
-		if ((bus_number != libusb_get_bus_number(dev)) ||
-		    (1 != libusb_get_device_address(dev))) /* Root hub always first on bus. */
+		uint8_t dev_bus = libusb_get_bus_number(dev);
+		if ((bus_number != dev_bus) ||
+		    (1 != libusb_get_device_address(dev))) /*  Root hub always first on bus. */
 			libusb_unref_device(dev);
 		else
 		{
@@ -1724,13 +1721,18 @@ static IUDEVICE* udev_init(URBDRC_PLUGIN* urbdrc, libusb_context* context, LIBUS
 		pdev->libusb_dev = udev_get_libusb_dev(context, bus_number, dev_number);
 
 	if (pdev->libusb_dev == NULL)
+	{
+		WLog_WARN(TAG, "Failed to udev_get_libusb_dev");
 		goto fail;
+	}
 
 	if (urbdrc->listener_callback)
 		udev_set_channelManager(&pdev->iface, urbdrc->listener_callback->channel_mgr);
 
 	/* Get DEVICE handle */
 	status = udev_get_device_handle(urbdrc, context, pdev, bus_number, dev_number);
+	WLog_DBG(TAG, "udev_get_device_handle result=>%d", status);
+
 	if (status != LIBUSB_SUCCESS)
 	{
 		struct libusb_device_descriptor desc;
@@ -1745,17 +1747,18 @@ static IUDEVICE* udev_init(URBDRC_PLUGIN* urbdrc, libusb_context* context, LIBUS
 
 	/* Get HUB handle */
 	status = udev_get_hub_handle(urbdrc, context, pdev, bus_number, dev_number);
-
 	if (status < 0)
+	{
+		WLog_WARN(TAG, "Failed to udev_get_hub_handle result=>%d", status);
 		pdev->hub_handle = NULL;
-
+	}
 	pdev->devDescriptor = udev_new_descript(urbdrc, pdev->libusb_dev);
 
 	if (!pdev->devDescriptor)
 		goto fail;
 
 	status = libusb_get_active_config_descriptor(pdev->libusb_dev, &pdev->LibusbConfig);
-
+	WLog_DBG(TAG, "libusb_get_active_config_descriptor result=>%d", status);
 	if (status == LIBUSB_ERROR_NOT_FOUND)
 		status = libusb_get_config_descriptor(pdev->libusb_dev, 0, &pdev->LibusbConfig);
 

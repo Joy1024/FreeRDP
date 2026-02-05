@@ -183,9 +183,6 @@ static UINT drive_process_irp_create(DRIVE_DEVICE* drive, IRP* irp)
 
 	DRIVE_FILE_CTRL ctrl = drive->ctrl;
 
-	// 故FILE_SUPERSEDE、FILE_OPEN_IF、FILE_OVERWRITE、FILE_OVERWRITE_IF也需要处理。
-	//     对于FILE_OPEN_IF，还需要判断DesiredAccess属性，如果是0x000002（请求写权限）和0x0000003（请求读写权限），则需要拦截
-
 	BOOL created = CreateDisposition == FILE_SUPERSEDE        // 重建+覆盖+新建
 	               || CreateDisposition == FILE_OVERWRITE     // 覆盖+失败
 	               || CreateDisposition == FILE_OVERWRITE_IF; // 覆盖+新建
@@ -1003,8 +1000,8 @@ static UINT drive_register_drive_path(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints,
 
 	if (!pEntryPoints || !name || !path)
 	{
-		WLog_ERR(TAG, "[%s] Invalid parameters: pEntryPoints=%p, name=%p, path=%p", pEntryPoints,
-		         name, path);
+		WLog_ERR(TAG, "[%s] Invalid parameters: pEntryPoints=%p, name=%p, path=%p", //
+		         pEntryPoints, name, path);
 		return ERROR_INVALID_PARAMETER;
 	}
 

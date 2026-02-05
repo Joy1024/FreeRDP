@@ -2315,7 +2315,8 @@ static void rdpdr_virtual_channel_event_terminated(rdpdrPlugin* rdpdr)
 	free(rdpdr);
 }
 
-static UINT rdpdr_register_device(RdpdrClientContext* context, const RDPDR_DEVICE* device,
+static UINT rdpdr_register_device(RdpdrClientContext* context, //
+                                  const RDPDR_DEVICE* device,  //
                                   uint32_t* pid)
 {
 	WINPR_ASSERT(context);

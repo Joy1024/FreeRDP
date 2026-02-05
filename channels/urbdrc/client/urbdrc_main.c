@@ -43,26 +43,6 @@
 
 #include <urbdrc_helpers.h>
 
-static IWTSVirtualChannel* get_channel(IUDEVMAN* idevman)
-{
-	IWTSVirtualChannelManager* channel_mgr = NULL;
-	URBDRC_PLUGIN* urbdrc = NULL;
-
-	if (!idevman)
-		return NULL;
-
-	urbdrc = (URBDRC_PLUGIN*)idevman->plugin;
-
-	if (!urbdrc || !urbdrc->listener_callback)
-		return NULL;
-
-	channel_mgr = urbdrc->listener_callback->channel_mgr;
-
-	if (!channel_mgr)
-		return NULL;
-
-	return channel_mgr->FindChannelById(channel_mgr, idevman->controlChannelId);
-}
 
 static int func_container_id_generate(IUDEVICE* pdev, char* strContainerId)
 {
@@ -476,11 +456,14 @@ static BOOL urbdrc_announce_devices(IUDEVMAN* udevman)
 		if (!pdev->isAlreadySend(pdev))
 		{
 			const UINT32 deviceId = pdev->get_UsbDevice(pdev);
-			UINT cerror =
+			error =
 			    urdbrc_send_virtual_channel_add(udevman->plugin, get_channel(udevman), deviceId);
 
-			if (cerror != ERROR_SUCCESS)
+			if (error != ERROR_SUCCESS)
+			{
+				WLog_WARN(TAG, "urdbrc_send_virtual_channel_add:%d", error);
 				break;
+			}
 		}
 	}
 
@@ -705,7 +688,6 @@ static UINT urbdrc_on_new_channel_connection(IWTSListenerCallback* pListenerCall
 		return ERROR_INVALID_PARAMETER;
 
 	callback = (GENERIC_CHANNEL_CALLBACK*)calloc(1, sizeof(GENERIC_CHANNEL_CALLBACK));
-
 	if (!callback)
 		return ERROR_OUTOFMEMORY;
 
@@ -923,14 +905,18 @@ BOOL add_device(IUDEVMAN* idevman, UINT32 flags, BYTE busnum, BYTE devnum, UINT1
 
 	const size_t success =
 	    idevman->register_udevice(idevman, busnum, devnum, idVendor, idProduct, regflags);
+	WLog_INFO(TAG, "Device register success size: %d", success);
 
 	if ((success > 0) && (flags & DEVICE_ADD_FLAG_REGISTER))
 	{
 		if (!urbdrc_announce_devices(idevman))
+		{
 			return FALSE;
+		}
+		return TRUE;
 	}
 
-	return TRUE;
+	return FALSE;
 }
 
 BOOL del_device(IUDEVMAN* idevman, UINT32 flags, BYTE busnum, BYTE devnum, UINT16 idVendor,
@@ -1026,6 +1012,12 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE urbdrc_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* 
 			free(urbdrc);
 			goto fail;
 		}
+
+		rdpSettings* settings = pEntryPoints->GetRdpSettings(pEntryPoints);
+		uint32_t usbRdrAct =
+		    freerdp_settings_get_uint32(settings, FreeRDP_USBDevicesToRedirectAction);
+
+		urbdrc->redirect_action = usbRdrAct;
 
 		urbdrc->log = WLog_Get(TAG);
 

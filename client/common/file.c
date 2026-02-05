@@ -232,6 +232,7 @@ static const char key_str_password[] = "password";
 static const char key_str_full_address[] = "full address";
 static const char key_str_alternate_full_address[] = "alternate full address";
 static const char key_str_usbdevicestoredirect[] = "usbdevicestoredirect";
+static const char key_str_usbdevicestoredirect_action[] = "usbdevicestoredirect action";
 static const char key_str_camerastoredirect[] = "camerastoredirect";
 static const char key_str_loadbalanceinfo[] = "loadbalanceinfo";
 static const char key_str_remoteapplicationname[] = "remoteapplicationname";
@@ -543,6 +544,8 @@ static BOOL freerdp_client_rdp_file_find_string_entry(rdpFile* file, const char*
 		*outValue = &file->AlternateFullAddress;
 	else if (_stricmp(name, key_str_usbdevicestoredirect) == 0)
 		*outValue = &file->UsbDevicesToRedirect;
+	else if (_stricmp(name, key_str_usbdevicestoredirect_action) == 0)
+		*outValue = &file->UsbDevicesToRedirectAction;
 	else if (_stricmp(name, key_str_camerastoredirect) == 0)
 		*outValue = &file->RedirectCameras;
 	else if (_stricmp(name, key_str_loadbalanceinfo) == 0)
@@ -1610,6 +1613,7 @@ static SSIZE_T write_string_parameters(const rdpFile* file, char* buffer, size_t
 		{ key_str_full_address, file->FullAddress },
 		{ key_str_alternate_full_address, file->AlternateFullAddress },
 		{ key_str_usbdevicestoredirect, file->UsbDevicesToRedirect },
+		{ key_str_usbdevicestoredirect_action, file->UsbDevicesToRedirectAction },
 		{ key_str_camerastoredirect, file->RedirectCameras },
 		{ key_str_loadbalanceinfo, file->LoadBalanceInfo },
 		{ key_str_remoteapplicationname, file->RemoteApplicationName },
