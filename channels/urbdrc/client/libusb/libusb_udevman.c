@@ -1076,17 +1076,21 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE libusb_freerdp_urbdrc_client_subsystem_entry(
 	BOOL hasHotplug = libusb_has_capability(LIBUSB_CAP_HAS_HOTPLUG);
 	if (!hasHotplug)
 	{
-		udevman->helper = CreateThread(NULL, 0, helper_thread, udevman, 0, NULL);
-		if (!udevman->helper)
-			goto fail;
+		URBDRC_PLUGIN* urbdrc = (URBDRC_PLUGIN*)udevman->iface.plugin;
+		if (urbdrc->redirect_action == URBDRC_REDIRECT_ACTION_AUTO_CONNECT)
+		{
+			udevman->helper = CreateThread(NULL, 0, helper_thread, udevman, 0, NULL);
+			if (!udevman->helper)
+				goto fail;
 
-		udevman->helper_vid_pids = ArrayList_New(TRUE);
-		if (!udevman->helper_vid_pids)
-			goto fail;
+			udevman->helper_vid_pids = ArrayList_New(TRUE);
+			if (!udevman->helper_vid_pids)
+				goto fail;
 
-		wObject* obj1 = ArrayList_Object(udevman->helper_vid_pids);
-		obj1->fnObjectFree = free;
-		obj1->fnObjectEquals = udevman_vid_pid_pair_equals;
+			wObject* obj1 = ArrayList_Object(udevman->helper_vid_pids);
+			obj1->fnObjectFree = free;
+			obj1->fnObjectEquals = udevman_vid_pid_pair_equals;
+		}
 	}
 	if (!pEntryPoints->pRegisterUDEVMAN(pEntryPoints->plugin, (IUDEVMAN*)udevman))
 		goto fail;

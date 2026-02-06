@@ -53,6 +53,13 @@ typedef struct S_IUDEVMAN IUDEVMAN;
 	_type (*get_##_arg)(IUDEVMAN * udevman);    \
 	void (*set_##_arg)(IUDEVMAN * udevman, _type _arg)
 
+typedef enum
+{
+	URBDRC_REDIRECT_ACTION_NONE = 0,     // 0 不处理
+	URBDRC_REDIRECT_ACTION_AUTO_CONNECT, // 1 自动连接
+	URBDRC_REDIRECT_ACTION_ASK_ME,       // 2 询问我(暂未实现)
+} URBDRC_REDIRECT_ACTION;
+
 typedef struct
 {
 	IWTSPlugin iface;
@@ -67,7 +74,7 @@ typedef struct
 	IWTSListener* listener;
 	BOOL initialized;
 
-	UINT32 redirect_action;
+	URBDRC_REDIRECT_ACTION redirect_action;
 } URBDRC_PLUGIN;
 
 typedef BOOL (*PREGISTERURBDRCSERVICE)(IWTSPlugin* plugin, IUDEVMAN* udevman);

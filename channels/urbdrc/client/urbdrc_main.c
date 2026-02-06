@@ -1016,9 +1016,14 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE urbdrc_DVCPluginEntry(IDRDYNVC_ENTRY_POINTS* 
 		rdpSettings* settings = pEntryPoints->GetRdpSettings(pEntryPoints);
 		uint32_t usbRdrAct =
 		    freerdp_settings_get_uint32(settings, FreeRDP_USBDevicesToRedirectAction);
-
-		urbdrc->redirect_action = usbRdrAct;
-
+		if (URBDRC_REDIRECT_ACTION_NONE <= usbRdrAct && usbRdrAct <= URBDRC_REDIRECT_ACTION_ASK_ME)
+		{
+			urbdrc->redirect_action = usbRdrAct;
+		}
+		else
+		{
+			urbdrc->redirect_action = URBDRC_REDIRECT_ACTION_NONE;
+		}
 		urbdrc->log = WLog_Get(TAG);
 
 		if (!urbdrc->log)
