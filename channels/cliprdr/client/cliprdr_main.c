@@ -70,6 +70,7 @@ static UINT cliprdr_packet_send(cliprdrPlugin* cliprdr, wStream* s)
 	WINPR_ASSERT(pos <= UINT32_MAX - 8);
 
 	const uint32_t dataLen = WINPR_ASSERTING_INT_CAST(uint32_t, pos - 8UL);
+	WLog_Print(cliprdr->log, WLOG_DEBUG, "Cliprdr data length: %u", dataLen);
 
 	Stream_SetPosition(s, 4);
 	Stream_Write_UINT32(s, dataLen);

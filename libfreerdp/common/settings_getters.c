@@ -2031,6 +2031,9 @@ UINT32 freerdp_settings_get_uint32(WINPR_ATTR_UNUSED const rdpSettings* settings
 		case FreeRDP_USBDevicesToRedirectAction:
 			return settings->USBDevicesToRedirectAction;
 
+		case FreeRDP_RedirectClipboardDirection:
+			return settings->RedirectClipboardDirection;
+
 #if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 		// API Compatibility section, remove with FreeRDP 4.x
 		case (FreeRDP_Settings_Keys_UInt32)FreeRDP_MonitorLocalShiftX:
@@ -2190,6 +2193,9 @@ BOOL freerdp_settings_set_uint32(WINPR_ATTR_UNUSED rdpSettings* settings,
 			break;
 		case FreeRDP_USBDevicesToRedirectAction:
 			settings->USBDevicesToRedirectAction = cnv.c;
+			break;
+		case FreeRDP_RedirectClipboardDirection:
+			settings->RedirectClipboardDirection = cnv.c;
 			break;
 		case FreeRDP_DrawNineGridCacheEntries:
 			settings->DrawNineGridCacheEntries = cnv.c;

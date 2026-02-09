@@ -809,7 +809,8 @@ struct rdp_settings
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 ClipboardFeatureMask); /* 4801 */
 	SETTINGS_DEPRECATED(ALIGN64 char* ClipboardUseSelection); /* 4802 */
 	SETTINGS_DEPRECATED(ALIGN64 UINT32 USBDevicesToRedirectAction); /* 4803 */
-	SETTINGS_DEPRECATED(UINT64 padding4928[4928 - 4804]);     /* 4804 */
+	SETTINGS_DEPRECATED(ALIGN64 UINT32 RedirectClipboardDirection); /* 4804 */
+	SETTINGS_DEPRECATED(UINT64 padding4928[4928 - 4805]);           /* 4805 */
 
 	/**
 	 * Static Virtual Channels
