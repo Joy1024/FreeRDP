@@ -389,7 +389,7 @@ BOOL drive_file_free(DRIVE_FILE* file)
 	if (file->CreateOptions & FILE_DELETE_ON_CLOSE)
 		file->delete_pending = TRUE;
 
-	if (file->delete_pending)
+	if (file->delete_pending && file->Ctrl == DRIVE_FILE_CTRL_FULL)
 	{
 		if (file->is_dir)
 		{
