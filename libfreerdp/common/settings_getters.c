@@ -2034,6 +2034,9 @@ UINT32 freerdp_settings_get_uint32(WINPR_ATTR_UNUSED const rdpSettings* settings
 		case FreeRDP_RedirectClipboardDirection:
 			return settings->RedirectClipboardDirection;
 
+		case FreeRDP_Expire:
+			return settings->Expire;
+
 #if !defined(WITHOUT_FREERDP_3x_DEPRECATED)
 		// API Compatibility section, remove with FreeRDP 4.x
 		case (FreeRDP_Settings_Keys_UInt32)FreeRDP_MonitorLocalShiftX:
@@ -2227,7 +2230,9 @@ BOOL freerdp_settings_set_uint32(WINPR_ATTR_UNUSED rdpSettings* settings,
 		case FreeRDP_ExtEncryptionMethods:
 			settings->ExtEncryptionMethods = cnv.c;
 			break;
-
+		case FreeRDP_Expire:
+			settings->Expire = cnv.c;
+			break;
 		case FreeRDP_FakeMouseMotionInterval:
 			settings->FakeMouseMotionInterval = cnv.c;
 			break;
