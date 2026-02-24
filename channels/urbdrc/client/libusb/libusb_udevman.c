@@ -70,6 +70,13 @@ typedef struct
 	uint8_t addr;
 } UDEV_ITEM;
 
+static BOOL udev_item_equals(const void* p1, const void* p2)
+{
+	const UDEV_ITEM* a = (const UDEV_ITEM*)p1;
+	const UDEV_ITEM* b = (const UDEV_ITEM*)p2;
+	return a->vid == b->vid && a->pid == b->pid && a->bus == b->bus && a->addr == b->addr;
+}
+
 typedef struct
 {
 	IUDEVMAN iface;
@@ -90,7 +97,7 @@ typedef struct
 	libusb_context* context;
 	HANDLE thread;
 	HANDLE helper;
-	wArrayList* helper_vid_pids;
+
 	BOOL running;
 } UDEVMAN;
 typedef UDEVMAN* PUDEVMAN;
@@ -883,87 +890,141 @@ static BOOL poll_libusb_events(UDEVMAN* udevman)
 
 static DWORD WINAPI helper_thread(LPVOID lpThreadParameter)
 {
-	UDEV_ITEM pair;
+
+	// 用于记录上一次扫描到的所有设备（VID:PID + bus:addr 作为唯一标识）
+	wArrayList* last_devices = ArrayList_New(TRUE);
+	if (!last_devices)
+		return 0;
+	wObject* obj1 = ArrayList_Object(last_devices);
+	obj1->fnObjectFree = free;
+	obj1->fnObjectEquals = udev_item_equals;
+
 	UDEVMAN* udevman = (UDEVMAN*)lpThreadParameter;
 	while (udevman->running)
 	{
-		IWTSVirtualChannel* channel = NULL;
-		if ((channel = get_channel(udevman)) != NULL)
+		IWTSVirtualChannel* channel = get_channel(udevman);
+		if (!channel)
 		{
-			libusb_device** list = NULL;
-			ssize_t cnt = libusb_get_device_list(udevman->context, &list);
-			if (cnt > 0)
-			{
-				// 存在设备进行添加到服务器端
-				WLog_DBG(TAG, "Found USB devices: %u", cnt);
-
-				for (int i = 0; i < cnt; i++)
-				{
-					libusb_device* dev = list[i];
-					struct libusb_device_descriptor desc;
-
-					int r = libusb_get_device_descriptor(dev, &desc);
-					if (r == 0)
-					{
-						const uint8_t bus = libusb_get_bus_number(dev);
-						const uint8_t addr = libusb_get_device_address(dev);
-
-						WLog_DBG(TAG, "USB device Bus:%03d Addr:%03d ID: %04x:%04x", bus, addr,
-						         desc.idVendor, desc.idProduct);
-
-						Sleep(1000);
-
-						pair.vid = desc.idVendor;
-						pair.pid = desc.idProduct;
-						pair.bus = bus;
-						pair.addr = addr;
-						if (!ArrayList_Contains(udevman->helper_vid_pids, &pair))
-						{
-							BOOL added = add_device(&udevman->iface,     //
-							                        DEVICE_ADD_FLAG_ALL, //
-							                        bus,                 //
-							                        addr,                //
-							                        desc.idVendor, desc.idProduct);
-							WLog_DBG(TAG, "\t The USB device is aded=>%d", added);
-							if (added)
-							{
-								// 添加成功之后，保存设备到缓存
-								UDEV_ITEM* dev_added = calloc(1, sizeof(UDEV_ITEM));
-								dev_added->vid = desc.idVendor;
-								dev_added->pid = desc.idProduct;
-								dev_added->bus = bus;
-								dev_added->addr = addr;
-								if (!ArrayList_Append(udevman->helper_vid_pids, dev_added))
-								{
-									free(dev_added);
-
-									// 移除设备
-									del_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, bus, addr,
-									           desc.idVendor, desc.idProduct);
-								}
-							}
-						}
-					}
-				}
-			}
-			else
-			{
-				size_t pos = 0;
-				while (pos < ArrayList_Count(udevman->helper_vid_pids))
-				{
-					UDEV_ITEM* item = ArrayList_GetItem(udevman->helper_vid_pids, pos);
-					WINPR_ASSERT(item);
-
-					WLog_DBG(TAG, "Removed USB device ID: %04x:%04x", item->vid, item->pid);
-					BOOL dev_deleted = del_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, //
-					                              item->bus, item->addr, item->vid, item->pid);
-					WLog_DBG(TAG, "Is deleted=>%d", dev_deleted);
-					ArrayList_RemoveAt(udevman->helper_vid_pids, pos);
-				}
-			}
-			// 释放列表
-			libusb_free_device_list(list, 1);
+			WLog_WARN(TAG, "Unable to get virtual channel!");
+			Sleep(2000);
+			continue;
 		}
+
+		libusb_device** list = NULL;
+		ssize_t cnt = libusb_get_device_list(udevman->context, &list);
+		// 查询USB设备数量
+		WLog_DBG(TAG, "Found USB devices: %u", cnt);
+
+		if (cnt < 0)
+		{
+			WLog_ERR(TAG, "libusb_get_device_list failed: %s", libusb_error_name(cnt));
+			Sleep(2000);
+			continue;
+		}
+
+		// 当前在线设备的临时集合
+		wArrayList* current_devices = ArrayList_New(TRUE);
+		if (!current_devices)
+		{
+			libusb_free_device_list(list, 1);
+			continue;
+		}
+
+		wObject* obj1 = ArrayList_Object(current_devices);
+		obj1->fnObjectFree = free;
+		obj1->fnObjectEquals = udev_item_equals;
+
+		// 遍历当前设备列表
+		for (ssize_t i = 0; i < cnt; i++)
+		{
+			libusb_device* dev = list[i];
+			struct libusb_device_descriptor desc;
+			if (libusb_get_device_descriptor(dev, &desc) != 0)
+				continue;
+
+			UINT8 bus = libusb_get_bus_number(dev);
+			UINT8 addr = libusb_get_device_address(dev);
+
+			// 跳过一些常见不需要重定向的设备（可选，根据需求）
+			if (desc.bDeviceClass == LIBUSB_CLASS_HUB)
+				continue;
+
+			// 当前设备
+			UDEV_ITEM* item = calloc(1, sizeof(UDEV_ITEM));
+			item->vid = desc.idVendor;
+			item->pid = desc.idProduct;
+			item->bus = bus;
+			item->addr = addr;
+
+			// 记录到当前集合
+			ArrayList_Append(current_devices, item);
+
+			// 如果之前不存在 → 新插入设备
+			if (!ArrayList_Contains(last_devices, item))
+			{
+				WLog_DBG(TAG, "New USB device detected: Bus:%03d Addr:%03d VID:%04x PID:%04x", bus,
+				         addr, desc.idVendor, desc.idProduct);
+				// 添加设备
+				BOOL added = add_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, bus, addr,
+				                        desc.idVendor, desc.idProduct);
+
+				if (!added)
+				{
+					WLog_WARN(TAG, "Failed to add device %04x:%04x", desc.idVendor, desc.idProduct);
+				}
+			}
+		}
+
+		// 检查已断开的设备（在 last_devices 中但不在 current_devices 中）
+		for (size_t i = ArrayList_Count(last_devices); i-- > 0;)
+		{
+			UDEV_ITEM* old = ArrayList_GetItem(last_devices, i);
+			if (!ArrayList_Contains(current_devices, old))
+			{
+				WLog_DBG(TAG, "USB device removed: Bus:%03d Addr:%03d VID:%04x PID:%04x", //
+				         old->bus, old->addr, old->vid, old->pid);
+
+				BOOL removed = del_device(&udevman->iface, DEVICE_ADD_FLAG_ALL, old->bus, old->addr,
+				                          old->vid, old->pid);
+
+				if (!removed)
+				{
+					WLog_WARN(TAG,
+					          "Failed to remove device Bus:%03d Addr:%03d VID:%04x PID:%04x", //
+					          old->bus, old->addr, old->vid, old->pid);
+				}
+			}
+		}
+
+		// 释放当前列表 current_devices
+		ArrayList_Free(current_devices);
+
+		// 更新 last_devices 为当前状态
+		ArrayList_Clear(last_devices, TRUE);
+		for (ssize_t i = 0; i < cnt; i++)
+		{
+			libusb_device* dev = list[i];
+			struct libusb_device_descriptor desc;
+			if (libusb_get_device_descriptor(dev, &desc) == 0)
+			{
+				UINT8 bus = libusb_get_bus_number(dev);
+				UINT8 addr = libusb_get_device_address(dev);
+				UDEV_ITEM* item = calloc(1, sizeof(UDEV_ITEM));
+				if (item)
+				{
+					item->vid = desc.idVendor;
+					item->pid = desc.idProduct;
+					item->bus = bus;
+					item->addr = addr;
+					ArrayList_Append(last_devices, item);
+				}
+			}
+		}
+
+		libusb_free_device_list(list, 1);
+
+		//  轮询间隔（可根据需求调整为 500ms ~ 2s）
+		Sleep(1000);
 	}
 	WLog_INFO(TAG, "USB helper is exited.");
 }
@@ -1082,14 +1143,6 @@ FREERDP_ENTRY_POINT(UINT VCAPITYPE libusb_freerdp_urbdrc_client_subsystem_entry(
 			udevman->helper = CreateThread(NULL, 0, helper_thread, udevman, 0, NULL);
 			if (!udevman->helper)
 				goto fail;
-
-			udevman->helper_vid_pids = ArrayList_New(TRUE);
-			if (!udevman->helper_vid_pids)
-				goto fail;
-
-			wObject* obj1 = ArrayList_Object(udevman->helper_vid_pids);
-			obj1->fnObjectFree = free;
-			obj1->fnObjectEquals = udevman_vid_pid_pair_equals;
 		}
 	}
 	if (!pEntryPoints->pRegisterUDEVMAN(pEntryPoints->plugin, (IUDEVMAN*)udevman))
