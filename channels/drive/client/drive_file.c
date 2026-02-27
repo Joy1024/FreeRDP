@@ -190,7 +190,7 @@ static BOOL drive_file_set_fullpath(DRIVE_FILE* file, const WCHAR* fullpath)
 
 static BOOL drive_file_init(DRIVE_FILE* file)
 {
-	WLog_ERR(TAG, "drive_file_init: %ws", file->fullpath);
+	WLog_DBG(TAG, "drive_file_init: %ws", file->fullpath);
 
 	UINT CreateDisposition = 0;
 	DWORD dwAttr = GetFileAttributesW(file->fullpath);
