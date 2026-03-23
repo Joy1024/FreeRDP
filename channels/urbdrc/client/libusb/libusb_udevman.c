@@ -913,7 +913,7 @@ static DWORD WINAPI helper_thread(LPVOID lpThreadParameter)
 		libusb_device** list = NULL;
 		ssize_t cnt = libusb_get_device_list(udevman->context, &list);
 		// 查询USB设备数量
-		WLog_DBG(TAG, "Found USB devices: %u", cnt);
+		// WLog_DBG(TAG, "Found USB devices: %u", cnt);
 
 		if (cnt < 0)
 		{
@@ -1000,7 +1000,7 @@ static DWORD WINAPI helper_thread(LPVOID lpThreadParameter)
 		ArrayList_Free(current_devices);
 
 		// 更新 last_devices 为当前状态
-		ArrayList_Clear(last_devices, TRUE);
+		ArrayList_Clear(last_devices);
 		for (ssize_t i = 0; i < cnt; i++)
 		{
 			libusb_device* dev = list[i];
